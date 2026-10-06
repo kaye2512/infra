@@ -15,3 +15,39 @@ variable "aws_secret_key" {
     description = "The AWS secret key."
     sensitive   = true
 }
+
+variable "vpc_cidr" {
+    type        = string
+    description = "The CIDR block for the VPC."
+}
+
+variable "public_subnet_cidr" {
+    type        = string
+    description = "The CIDR block for the public subnet."
+}
+
+variable "private_subnet_cidr" {
+    type        = string
+    description = "The CIDR block for the private subnet."
+}
+
+variable "ami_id" {
+    type        = string
+    description = "The AMI ID to use for the EC2 instance."
+}
+
+variable "instance_type" {
+    type        = string
+    description = "The instance type for the EC2 instance."
+    default     = "t3.micro"
+}
+
+variable "ssh_allowed_cidr" {
+    type        = string
+    description = "The CIDR block allowed for SSH access."
+}
+
+variable "environment" {
+    type        = string
+    description = "The environment name (e.g., dev, staging, prod)."
+}

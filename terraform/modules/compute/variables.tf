@@ -8,3 +8,24 @@ variable "instance_type" {
     description = "The instance type for the EC2 instance."
     default     = "t3.micro"
 }
+
+variable "security_group_id" {
+    type        = string
+    description = "The ID of the security group to associate with the EC2 instance."
+}
+
+variable "subnet_id" {
+    type        = string
+    description = "The ID of the subnet to launch the EC2 instance in."
+}
+
+variable "environment" {
+    type        = string
+    description = "The environment name (e.g., dev, staging, prod)."
+}
+
+variable "instance_name" {
+    type        = string
+    description = "The name to assign to the EC2 instance."
+    default     = ""
+}
