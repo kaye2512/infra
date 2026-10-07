@@ -1,3 +1,24 @@
+variable "aws_region" {
+  type        = string
+  description = "The AWS region to deploy resources in."
+  default     = "eu-west-3"
+}
+
+variable "vpc_cidr" {
+  type        = string
+  description = "The CIDR block for the VPC."
+}
+
+variable "public_subnet_cidr" {
+  type        = string
+  description = "The CIDR block for the public subnet."
+}
+
+variable "private_subnet_cidr" {
+  type        = string
+  description = "The CIDR block for the private subnet."
+}
+
 variable "ami_id" {
   type        = string
   description = "The AMI ID to use for the EC2 instance."
@@ -9,25 +30,14 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
-variable "security_group_id" {
+variable "ssh_allowed_cidr" {
   type        = string
-  description = "The ID of the security group to associate with the EC2 instance."
-}
-
-variable "subnet_id" {
-  type        = string
-  description = "The ID of the subnet to launch the EC2 instance in."
+  description = "The CIDR block allowed for SSH access."
 }
 
 variable "environment" {
   type        = string
   description = "The environment name (e.g., dev, staging, prod)."
-}
-
-variable "instance_name" {
-  type        = string
-  description = "The name to assign to the EC2 instance."
-  default     = ""
 }
 
 variable "hostname" {
@@ -43,4 +53,10 @@ variable "username" {
 variable "ssh_public_key" {
   type        = string
   description = "The SSH public key to add to the EC2 instance for the specified user."
+  sensitive   = true
+}
+
+variable "availability_zone" {
+  type        = string
+  description = "The availability zone for the subnets."
 }
