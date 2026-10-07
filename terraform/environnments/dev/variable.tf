@@ -51,3 +51,18 @@ variable "environment" {
     type        = string
     description = "The environment name (e.g., dev, staging, prod)."
 }
+
+variable "hostname" {
+    type        = string
+    description = "The hostname to assign to the EC2 instance."
+}
+
+variable "username" {
+    type        = string
+    description = "The username to create on the EC2 instance."
+}
+
+variable "ssh_public_key" {
+    type        = string
+    description = "The SSH public key to add to the EC2 instance for the specified user."
+}

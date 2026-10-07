@@ -20,4 +20,7 @@ module "compute" {
     subnet_id = module.network.public_subnet_id
     security_group_id = module.security.public_sg_id
     instance_name = "${var.environment}-ec2-instance"
+    hostname = var.hostname
+    username = var.username
+    ssh_public_key = var.ssh_public_key
 }
