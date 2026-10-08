@@ -4,11 +4,13 @@ resource "aws_instance" "server" {
   subnet_id              = var.subnet_id
   vpc_security_group_ids = [var.security_group_id]
 
+
   user_data = templatefile("${path.module}/templates/user-data.tpl", {
     hostname       = var.hostname
     username       = var.username
     ssh_public_key = var.ssh_public_key
   })
+  user_data_replace_on_change = true
 
   tags = {
     Name = var.instance_name

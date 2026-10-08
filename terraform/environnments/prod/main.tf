@@ -1,7 +1,7 @@
 module "network" {
   source              = "../../modules/network"
   vpc_cidr_block      = var.vpc_cidr
-  availability_zone   = var.availability_zone
+  availability_zones  = var.availability_zones
   public_subnet_cidr  = var.public_subnet_cidr
   private_subnet_cidr = var.private_subnet_cidr
 }
@@ -18,7 +18,7 @@ module "compute" {
   ami_id            = var.ami_id
   instance_type     = var.instance_type
   environment       = var.environment
-  subnet_id         = module.network.public_subnet
+  subnet_id         = module.network.public_subnet[0]
   security_group_id = module.security.public_sg_id
   instance_name     = "${var.environment}-ec2-instance"
   hostname          = var.hostname

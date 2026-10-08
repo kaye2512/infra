@@ -10,12 +10,12 @@ variable "vpc_cidr" {
 }
 
 variable "public_subnet_cidr" {
-  type        = string
+  type        = list(string)
   description = "The CIDR block for the public subnet."
 }
 
 variable "private_subnet_cidr" {
-  type        = string
+  type        = list(string)
   description = "The CIDR block for the private subnet."
 }
 
@@ -56,7 +56,7 @@ variable "ssh_public_key" {
   sensitive   = true
 }
 
-variable "availability_zone" {
-  type        = string
-  description = "The availability zone for the subnets."
+variable "availability_zones" {
+  type    = list(string)
+  default = ["eu-west-3a", "eu-west-3b", "eu-west-3c"]
 }
