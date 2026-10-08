@@ -7,10 +7,11 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "my-terraform-state-bucket"
-    key    = "terraform.tfstate"
-    region = "eu-west-3"
-    encrypt = true
+    bucket       = "my-terraform-state-bucket-225989374284-eu-west-3"
+    key          = "prod/terraform.tfstate"
+    region       = "eu-west-3"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 
