@@ -22,3 +22,8 @@ output "oidc_issuer_url" {
   description = "OIDC issuer URL for the cluster (will be used to grant AWS permissions to pods)."
   value       = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
+
+output "node_group_name" {
+  description = "Name of the EKS node group."
+  value       = aws_eks_node_group.main.node_group_name
+}

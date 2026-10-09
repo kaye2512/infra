@@ -1,99 +1,101 @@
-# infra — Plateforme AWS EKS avec Terraform
+# infra — AWS EKS platform with Terraform
 
-Infrastructure AWS de production montée et détruite à la demande, écrite entièrement en Terraform avec des modules maison (sans module communautaire)
+Production-style AWS infrastructure, created and destroyed on demand, written entirely in Terraform with hand-built modules (no community modules) to understand every building block of an EKS cluster.
 
-## Avancement
+> showcase project. The environment is created at the start of a work session (`apply`) and destroyed at the end (`destroy`).
 
-- [x] Backend du state Terraform (S3 versionné, chiffré, verrouillage natif)
-- [x] Réseau multi-AZ : VPC, subnets publics et privés sur 3 AZ, Internet Gateway, NAT Gateway
-- [x] Bastion EC2 configuré par cloud-init, accès SSH restreint
-- [x] Control plane EKS (rôle IAM, endpoint public restreint + privé)
-- [ ] Nœuds EKS (managed node group)
-- [ ] Accès `kubectl` depuis le bastion (rôle IAM, access entry EKS)
-- [ ] Base PostgreSQL (RDS) et registre d'images (ECR)
-- [ ] Configuration du bastion avec Ansible (Jenkins, outils)
-- [ ] Déploiement GitOps avec ArgoCD
+## Progress
+
+- [x] Terraform state backend (versioned, encrypted S3 bucket with native locking)
+- [x] Multi-AZ network: VPC, public and private subnets across 3 AZs, Internet Gateway, NAT Gateway
+- [x] EC2 bastion configured with cloud-init, restricted SSH access
+- [x] EKS control plane (IAM role, restricted public endpoint + private endpoint)
+- [ ] EKS worker nodes (managed node group)
+- [ ] `kubectl` access from the bastion (instance IAM role, EKS access entry)
+- [ ] PostgreSQL database (RDS) and image registry (ECR)
+- [ ] Bastion configuration with Ansible (Jenkins, tooling)
+- [ ] GitOps deployment with ArgoCD
 - [ ] Monitoring (Prometheus, Grafana)
-- [ ] Accès au bastion via Tailscale, port 22 fermé
+- [ ] Bastion access through Tailscale, port 22 closed
 
 ## Architecture
 
 ```
                           Internet
                              │
-┌─ Région eu-west-3 ─────────┼──────────────────────────────────────────┐
+┌─ Region eu-west-3 ─────────┼──────────────────────────────────────────┐
 │ ┌─ VPC 10.0.0.0/16 ────────┼───────────────────────────────────────┐  │
 │ │                          │                                       │  │
-│ │  Subnets publics    Internet Gateway                             │  │
+│ │  Public subnets     Internet Gateway                             │  │
 │ │  10.0.0-2.0/24           │                                       │  │
-│ │   ├── Bastion EC2  ◄── SSH (IP admin uniquement)                 │  │
+│ │   ├── EC2 bastion  ◄── SSH (admin IP only)                       │  │
 │ │   └── NAT Gateway                                                │  │
 │ │          │                                                       │  │
-│ │  Subnets privés                                                  │  │
+│ │  Private subnets                                                 │  │
 │ │  10.0.3-5.0/24                                                   │  │
-│ │   └── EKS (interfaces du control plane, nœuds à venir)           │  │
+│ │   └── EKS (control plane network interfaces, nodes coming next)  │  │
 │ │                                                                  │  │
 │ └──────────────────────────────────────────────────────────────────┘  │
 │                                                                       │
-│  Control plane EKS (géré par AWS)    S3 : state Terraform             │
+│  EKS control plane (managed by AWS)    S3: Terraform state            │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
-Chaque AZ (`eu-west-3a`, `b`, `c`) possède un subnet public et un subnet privé. Les subnets privés sortent sur Internet par le NAT Gateway.
+Each AZ (`eu-west-3a`, `b`, `c`) has one public and one private subnet. Private subnets reach the Internet through the NAT Gateway.
 
-## Structure du dépôt
+## Repository layout
 
 ```
 terraform/
-├── environnements/
-│   ├── backend_s3/      # bucket du state, créé une seule fois
-│   └── prod/            # assemble les modules, un state par environnement
+├── environments/
+│   ├── backend_s3/      # state bucket, created once
+│   └── prod/            # wires the modules together, one state per environment
 └── modules/
-    ├── backend/         # bucket S3 du state
+    ├── backend/         # S3 state bucket
     ├── network/         # VPC, subnets, routes, IGW, NAT
     ├── security/        # security groups
-    ├── compute/         # instance bastion + cloud-init
-    └── eks/             # cluster EKS et son rôle IAM
-ansible/                 # à venir
-gitops/                  # à venir
+    ├── compute/         # bastion instance + cloud-init
+    └── eks/             # EKS cluster and its IAM role
+ansible/                 # coming soon
+gitops/                  # coming soon
 ```
 
-Chaque environnement est un dossier qui appelle les modules et se configure par son propre `terraform.tfvars`. Ajouter un environnement `dev` consiste à copier le dossier `prod` et à changer ses variables.
+Each environment is a folder that calls the modules and is configured through its own `terraform.tfvars`. Adding a `dev` environment means copying the `prod` folder and changing its variables.
 
-## Choix techniques
+## Design decisions
 
-| Choix | Pourquoi |
+| Decision | Rationale |
 |---|---|
-| State dans S3 avec `use_lockfile` | Versionné et chiffré. Le verrou natif S3 empêche deux `apply` simultanés, sans table DynamoDB. |
-| Modules écrits à la main | Comprendre chaque ressource (IAM, réseau, EKS) plutôt que de les cacher derrière un module communautaire. |
-| Un dossier par environnement | Chaque environnement a son state et ses variables. Les modules restent génériques. |
-| Subnets sur 3 AZ, indexés par AZ (`for_each`) | Exigé par EKS et RDS. L'indexation par AZ évite les recréations en cascade qu'aurait `count`. |
-| Un seul NAT Gateway | Choix de coût pour un lab. En production réelle, un NAT par AZ éviterait le point unique de panne. |
-| AMI recherchée par data source | Une AMI est propre à une région et change avec les mises à jour. La data source prend la dernière Ubuntu 24.04 publiée par Canonical. |
-| SSH limité à l'IP de l'administrateur | Injectée à chaque session, puisque l'IP change selon le lieu de connexion. |
-| API EKS publique restreinte + privée | Le PC de l'administrateur passe par Internet (limité à son IP). Le bastion et les nœuds passent par le VPC. |
-| Kubernetes 1.36 | Version par défaut d'EKS, en support standard. Une version en support étendu coûte 6 fois plus cher. |
+| State in S3 with `use_lockfile` | Versioned and encrypted. Native S3 locking prevents concurrent `apply` runs without a DynamoDB table. |
+| Hand-written modules | Understand each resource (IAM, networking, EKS) instead of hiding them behind a community module. |
+| One folder per environment | Each environment has its own state and variables. Modules stay generic. |
+| Subnets across 3 AZs, keyed by AZ (`for_each`) | Required by EKS and RDS. Keying by AZ avoids the cascading re-creations that `count` would cause. |
+| Single NAT Gateway | Cost trade-off for a lab. A real production setup would use one NAT per AZ to avoid a single point of failure. |
+| AMI looked up with a data source | AMI IDs are region-specific and change with every update. The data source picks the latest Ubuntu 24.04 image published by Canonical. |
+| SSH restricted to the admin IP | Injected at each session, since the IP changes depending on where I connect from. |
+| Restricted public + private EKS endpoint | The admin workstation goes through the Internet (limited to its IP). The bastion and nodes go through the VPC. |
+| Kubernetes 1.36 | EKS default version, in standard support. A version in extended support costs 6 times more. |
 
-## Prérequis
+## Prerequisites
 
-- Compte AWS et AWS CLI v2 configurée
+- An AWS account and AWS CLI v2 configured
 - Terraform ≥ 1.10
-- `kubectl` (au plus une version mineure d'écart avec le cluster)
-- Une paire de clés SSH
+- `kubectl` (at most one minor version away from the cluster)
+- An SSH key pair
 
-## Utilisation
+## Usage
 
-### 1. Backend du state (une seule fois)
+### 1. State backend (once)
 
 ```bash
-cd terraform/environnements/backend_s3
+cd terraform/environments/backend_s3
 terraform init
 terraform apply
 ```
 
-### 2. Environnement prod
+### 2. Prod environment
 
-Créer `terraform/environnements/prod/terraform.tfvars` (non versionné) :
+Create `terraform/environments/prod/terraform.tfvars` (not committed):
 
 ```hcl
 environment         = "prod"
@@ -109,10 +111,10 @@ ssh_public_key      = "ssh-ed25519 AAAA..."
 eks_version         = "1.36"
 ```
 
-L'IP autorisée n'est pas dans le fichier : elle est injectée à chaque session.
+The allowed IP is not in the file: it is injected at each session.
 
 ```bash
-cd terraform/environnements/prod
+cd terraform/environments/prod
 export TF_VAR_ssh_allowed_cidr="$(curl -s ifconfig.me)/32"
 
 terraform init
@@ -120,48 +122,48 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-La création complète prend environ 15 minutes, surtout pour le cluster EKS.
+A full creation takes about 15 minutes, mostly for the EKS cluster.
 
-### 3. Se connecter
+### 3. Connect
 
 ```bash
 # Bastion
 $(terraform output -raw bastion_ssh_command)
 
-# Cluster EKS, depuis le poste de l'administrateur
+# EKS cluster, from the admin workstation
 $(terraform output -raw eks_kubeconfig_command)
 kubectl get svc
 ```
 
-### 4. Détruire
+### 4. Destroy
 
 ```bash
 terraform destroy
-terraform state list   # doit être vide
+terraform state list   # should be empty
 ```
 
-## Coûts
+## Costs
 
-Rien n'est gratuit tant que l'environnement tourne. Ordre de grandeur, hors taxes :
+Nothing is free while the environment is running. Rough estimates, excluding taxes:
 
-| Ressource | Prix approximatif |
+| Resource | Approximate price |
 |---|---|
-| Control plane EKS | 0,10 $/h |
-| NAT Gateway | ≈ 0,05 $/h + données |
-| Bastion t3.micro | ≈ 0,01 $/h |
-| IP publiques | ≈ 0,005 $/h chacune |
+| EKS control plane | $0.10/h |
+| NAT Gateway | ≈ $0.05/h + data |
+| t3.micro bastion | ≈ $0.01/h |
+| Public IPs | ≈ $0.005/h each |
 
-Le risque principal est d'oublier le `destroy` : un environnement laissé allumé un mois coûte plus de 100 $.
+The main risk is forgetting the `destroy`: an environment left running for a month costs over $100.
 
-## Sécurité
+## Security
 
-- Le state et les fichiers `tfplan` contiennent toutes les valeurs **en clair**, y compris celles marquées `sensitive`. Le bucket du state est privé et chiffré. Les plans ne sont jamais commités.
-- `terraform.tfvars` n'est pas versionné.
-- Aucune clé d'accès AWS n'est stockée sur le bastion : l'accès au cluster passera par un rôle IAM attaché à l'instance.
+- The state and `tfplan` files store every value **in plain text**, including those marked `sensitive`. The state bucket is private and encrypted. Plan files are never committed.
+- `terraform.tfvars` is not committed.
+- No AWS access keys are stored on the bastion: cluster access will go through an IAM role attached to the instance.
 
-## Améliorations prévues
+## Roadmap
 
-- Fermer l'accès public à l'API EKS une fois le bastion opérationnel
-- Remplacer l'accès SSH par Tailscale (installé par cloud-init)
-- Un NAT Gateway par AZ en production réelle
-- CI : `terraform fmt`, `validate`, `tflint` et `plan` automatique sur les pull requests
+- Close public access to the EKS API once the bastion is operational
+- Replace SSH access with Tailscale (installed by cloud-init)
+- One NAT Gateway per AZ for real production
+- CI: `terraform fmt`, `validate`, `tflint` and an automatic `plan` on pull requests

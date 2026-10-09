@@ -82,3 +82,21 @@ variable "endpoint_public_access" {
   type        = bool
   default     = false
 }
+
+variable "node_instance_type" {
+  description = "The instance type for the EKS worker nodes"
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "capacity_type" {
+  description = "The capacity type for the EKS worker nodes (ON_DEMAND or SPOT)"
+  type        = string
+  default     = "ON_DEMAND"
+}
+
+variable "ami_type" {
+  description = "The AMI type for the EKS worker nodes (AL2_x86_64, AL2_x86_64_GPU, AL2_ARM_64, etc.)"
+  type        = string
+  default     = "AL2023_x86_64_STANDARD"
+}
