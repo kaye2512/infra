@@ -25,3 +25,13 @@ module "compute" {
   username          = var.username
   ssh_public_key    = var.ssh_public_key
 }
+
+module "eks" {
+  source                  = "../../modules/eks"
+  cluster_name            = "${var.environment}-eks-cluster"
+  subnet_ids              = module.network.private_subnet
+  eks_version             = var.eks_version
+  endpoint_private_access = var.endpoint_private_access
+  endpoint_public_access  = var.endpoint_public_access
+  public_access_cidrs     = [var.ssh_allowed_cidr]
+}

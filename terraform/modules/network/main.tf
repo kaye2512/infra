@@ -1,5 +1,5 @@
 resource "aws_vpc" "main_vpc" {
-  cidr_block = var.vpc_cidr_block
+  cidr_block           = var.vpc_cidr_block
   enable_dns_hostnames = true
 
   tags = {
@@ -8,24 +8,26 @@ resource "aws_vpc" "main_vpc" {
 }
 
 resource "aws_subnet" "public_subnet" {
-  for_each = toset(var.availability_zones)
+  for_each                = toset(var.availability_zones)
   vpc_id                  = aws_vpc.main_vpc.id
   cidr_block              = var.public_subnet_cidr[index(var.availability_zones, each.value)]
-  availability_zone = each.value
+  availability_zone       = each.value
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "public-${each.value}"
+    Name                     = "public-${each.value}"
+    "kubernetes.io/role/elb" = "1"
   }
 }
 
 resource "aws_subnet" "private_subnet" {
-  for_each = toset(var.availability_zones)
+  for_each          = toset(var.availability_zones)
   vpc_id            = aws_vpc.main_vpc.id
   cidr_block        = var.private_subnet_cidr[index(var.availability_zones, each.value)]
   availability_zone = each.value
   tags = {
-    Name = "private-${each.value}"
+    Name                              = "private-${each.value}"
+    "kubernetes.io/role/internal-elb" = "1"
   }
 }
 
@@ -44,13 +46,13 @@ resource "aws_route_table" "public_route_table" {
 }
 
 resource "aws_route_table_association" "public_subnet_association" {
-  for_each = aws_subnet.public_subnet
+  for_each       = aws_subnet.public_subnet
   subnet_id      = each.value.id
   route_table_id = aws_route_table.public_route_table.id
 }
 
 resource "aws_route_table_association" "private_subnet_association" {
-  for_each = aws_subnet.private_subnet
+  for_each       = aws_subnet.private_subnet
   subnet_id      = each.value.id
   route_table_id = aws_route_table.private_route_table.id
 }

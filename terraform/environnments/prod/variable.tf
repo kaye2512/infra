@@ -60,3 +60,25 @@ variable "availability_zones" {
   type    = list(string)
   default = ["eu-west-3a", "eu-west-3b", "eu-west-3c"]
 }
+
+variable "cluster_name" {
+  description = "The name of the EKS cluster"
+  type        = string
+}
+
+variable "eks_version" {
+  description = "The version of the EKS cluster"
+  type        = string
+}
+
+variable "endpoint_private_access" {
+  description = "Whether the EKS cluster endpoint is accessible privately"
+  type        = bool
+  default     = false
+}
+
+variable "endpoint_public_access" {
+  description = "Whether the EKS cluster endpoint is accessible publicly"
+  type        = bool
+  default     = false
+}
