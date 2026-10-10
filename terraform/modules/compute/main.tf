@@ -3,14 +3,14 @@ resource "aws_instance" "server" {
   instance_type          = var.instance_type
   subnet_id              = var.subnet_id
   vpc_security_group_ids = [var.security_group_id]
-
+  iam_instance_profile   = aws_iam_instance_profile.bastion.name
 
   user_data = templatefile("${path.module}/templates/user-data.tpl", {
     hostname       = var.hostname
     username       = var.username
     ssh_public_key = var.ssh_public_key
+    kubectl_version = var.kubectl_version
   })
-  user_data_replace_on_change = true
 
   tags = {
     Name = var.instance_name

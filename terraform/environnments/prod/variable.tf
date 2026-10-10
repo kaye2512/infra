@@ -100,3 +100,9 @@ variable "ami_type" {
   type        = string
   default     = "AL2023_x86_64_STANDARD"
 }
+
+variable "kubectl_version" {
+  type        = string
+  description = "The version of kubectl to install on the EC2 instance."
+  default     = "1.36.4"
+}

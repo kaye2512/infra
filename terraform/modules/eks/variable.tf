@@ -44,3 +44,9 @@ variable "ami_type" {
   description = "The AMI type for the EKS worker nodes (AL2_x86_64, AL2_x86_64_GPU, AL2_ARM_64, etc.)"
   type        = string
 }
+
+variable "admin_role_arns" {
+  description = "The ARN of the IAM role that will be used as the admin role for the EKS cluster"
+  type        = map(string)
+  default     = {}
+}
