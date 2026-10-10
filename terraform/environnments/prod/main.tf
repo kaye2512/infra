@@ -24,6 +24,7 @@ module "compute" {
   hostname          = var.hostname
   username          = var.username
   ssh_public_key    = var.ssh_public_key
+  kubectl_version   = var.kubectl_version
 }
 
 module "eks" {
@@ -37,4 +38,16 @@ module "eks" {
   node_instance_type      = var.node_instance_type
   capacity_type           = var.capacity_type
   ami_type                = var.ami_type
+  admin_role_arns = {
+    bastion = module.compute.role_arn
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "cluster_api_from_bastion" {
+  description                  = "API Kubernetes depuis le bastion"
+  security_group_id            = module.eks.cluster_security_group_id
+  referenced_security_group_id = module.security.public_sg_id
+  ip_protocol                  = "tcp"
+  from_port                    = 443
+  to_port                      = 443
 }

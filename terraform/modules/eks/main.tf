@@ -44,3 +44,23 @@ resource "aws_eks_node_group" "main" {
     aws_iam_role_policy_attachment.prod-node-AmazonEC2ContainerRegistryPullOnly,
   ]
 }
+
+resource "aws_eks_access_entry" "admins" {
+  for_each = var.admin_role_arns
+
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = each.value
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "admins" {
+  for_each = var.admin_role_arns
+
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = aws_eks_access_entry.admins[each.key].principal_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+}
