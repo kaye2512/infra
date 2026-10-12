@@ -106,3 +106,28 @@ variable "kubectl_version" {
   description = "The version of kubectl to install on the EC2 instance."
   default     = "1.36.4"
 }
+
+
+variable "image_tag_mutability" {
+  description = "The tag mutability setting for the repository. Valid values are 'MUTABLE' or 'IMMUTABLE'."
+  type        = string
+  default     = "IMMUTABLE"
+}
+
+variable "force_delete" {
+  description = "Whether to force delete the repository."
+  type        = bool
+  default     = true
+}
+
+variable "scan_on_push" {
+  description = "Whether to scan images on push."
+  type        = bool
+  default     = true
+}
+
+variable "lifecycle_policy_max_image_count" {
+  description = "The maximum number of images to retain in the ECR repository."
+  type        = number
+  default     = 10
+}

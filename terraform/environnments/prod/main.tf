@@ -51,3 +51,12 @@ resource "aws_vpc_security_group_ingress_rule" "cluster_api_from_bastion" {
   from_port                    = 443
   to_port                      = 443
 }
+
+module "registry" {
+  source                           = "../../modules/registry"
+  environment                      = var.environment
+  image_tag_mutability             = var.image_tag_mutability
+  force_delete                     = var.force_delete
+  scan_on_push                     = var.scan_on_push
+  lifecycle_policy_max_image_count = var.lifecycle_policy_max_image_count
+}

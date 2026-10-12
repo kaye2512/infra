@@ -17,3 +17,8 @@ output "eks_kubeconfig_command" {
   description = "Command to generate the kubeconfig file for the EKS cluster."
   value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
 }
+
+output "ecr_repository_url" {
+  description = "URL du dépôt ECR, pour docker push et les manifestes Kubernetes."
+  value       = module.registry.repository_url
+}
