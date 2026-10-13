@@ -51,3 +51,30 @@ resource "aws_vpc_security_group_ingress_rule" "cluster_api_from_bastion" {
   from_port                    = 443
   to_port                      = 443
 }
+
+module "registry" {
+  source                           = "../../modules/registry"
+  environment                      = var.environment
+  image_tag_mutability             = var.image_tag_mutability
+  force_delete                     = var.force_delete
+  scan_on_push                     = var.scan_on_push
+  lifecycle_policy_max_image_count = var.lifecycle_policy_max_image_count
+}
+
+module "rds" {
+  source            = "../../modules/rds"
+  environment       = var.environment
+  subnet_ids        = module.network.private_subnet
+  engine_version    = var.engine_version
+  instance_class    = var.instance_class
+  db_engine         = var.db_engine
+  allocated_storage = var.allocated_storage
+  db_name           = var.db_name
+  username          = var.username
+  vpc_id            = module.network.main_vpc
+
+  allowed_security_groups = {
+    eks_nodes = module.eks.cluster_security_group_id
+    bastion   = module.security.public_sg_id
+  }
+}
