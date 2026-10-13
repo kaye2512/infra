@@ -2,6 +2,8 @@
 
 Production-style AWS infrastructure, created and destroyed on demand, written entirely in Terraform with hand-built modules (no community modules) to understand every building block of an EKS cluster.
 
+> Learning and showcase project. The environment is created at the start of a work session (`apply`) and destroyed at the end (`destroy`).
+
 ## Progress
 
 - [x] Terraform state backend (versioned, encrypted S3 bucket with native locking)
@@ -10,8 +12,9 @@ Production-style AWS infrastructure, created and destroyed on demand, written en
 - [x] EKS control plane (IAM role, restricted public endpoint + private endpoint)
 - [x] EKS worker nodes (managed node group, Amazon Linux 2023, one node per AZ)
 - [x] `kubectl` access from the bastion (instance IAM role, EKS access entry, private endpoint)
+- [x] Private container registry (ECR): immutable tags, scan on push, lifecycle policy
+- [x] PostgreSQL database (RDS) in private subnets, master password managed by Secrets Manager
 - [ ] Close public access to the EKS API (bastion only)
-- [ ] PostgreSQL database (RDS) and image registry (ECR)
 - [ ] Bastion configuration with Ansible (Jenkins, tooling)
 - [ ] GitOps deployment with ArgoCD
 - [ ] Monitoring (Prometheus, Grafana)
@@ -33,17 +36,22 @@ Production-style AWS infrastructure, created and destroyed on demand, written en
 │ │  └──────────────┘        ┌──────────────────┐      │           │ kubelet │
 │ │  ┌──────────────┐        │ 2 EKS nodes      │──────┼───────────┘         │
 │ │  │ NAT Gateway  │◄───────│ t3.medium, 1/AZ  │      │   ┌────────────────┐│
-│ │  └──────────────┘        └──────────────────┘      │   │ S3: TF state   ││
-│ └────────────────────────────────────────────────────┘   └────────────────┘│
+│ │  └──────────────┘        └────────┬─────────┘      │   │ S3: TF state   ││
+│ │                          5432       ▼              │   └────────────────┘│
+│ │                          ┌──────────────────┐      │   ┌────────────────┐│
+│ │                          │ RDS PostgreSQL   │      │   │ ECR (images)   ││
+│ │                          │ db.t4g.micro     │      │   │ Secrets Manager││
+│ │                          └──────────────────┘      │   └────────────────┘│
+│ └────────────────────────────────────────────────────┘                     │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
 | Range | Role | Route to the Internet |
 |---|---|---|
 | `10.0.0.0/24` – `10.0.2.0/24` | Public subnets (bastion, NAT, future ALBs) | Internet Gateway |
-| `10.0.3.0/24` – `10.0.5.0/24` | Private subnets (EKS nodes and control plane interfaces) | NAT Gateway |
+| `10.0.3.0/24` – `10.0.5.0/24` | Private subnets (EKS nodes, control plane interfaces, RDS) | NAT Gateway |
 
-The admin workstation reaches the Kubernetes API over the Internet, restricted to its IP. The bastion reaches it from inside the VPC on port 443. Nodes have no public IP and go out through the NAT Gateway.
+The admin workstation reaches the Kubernetes API over the Internet, restricted to its IP. The bastion reaches it from inside the VPC on port 443. Nodes have no public IP and go out through the NAT Gateway. They pull images from ECR and reach PostgreSQL on port 5432; the database is not reachable from the Internet.
 
 ## Repository layout
 
@@ -57,7 +65,9 @@ terraform/
     ├── network/         # VPC, subnets, routes, IGW, NAT
     ├── security/        # security groups
     ├── compute/         # bastion instance, its IAM role, cloud-init
-    └── eks/             # cluster, node group, IAM roles, access entries
+    ├── eks/             # cluster, node group, IAM roles, access entries
+    ├── registry/        # ECR repository and lifecycle policy
+    └── rds/             # PostgreSQL instance, subnet group, security group
 ansible/                 # coming soon
 gitops/                  # coming soon
 ```
@@ -84,6 +94,15 @@ Each environment is a folder that calls the modules and is configured through it
 | ARN pattern (`cluster/prod-*`) for the bastion permission | Referencing the exact cluster ARN would create a dependency cycle between the `compute` and `eks` modules. |
 | Access entries keyed by a fixed map (`{ bastion = <arn> }`) | `for_each` keys must be known at plan time; role ARNs only exist after creation. |
 | Security group rule referencing the bastion's security group | The bastion is re-created when its cloud-init changes, with a new private IP. Its security group stays the same. |
+| ECR tags `IMMUTABLE` | A pushed tag can never be overwritten: `v1` always points to the same image, so a deployment is reproducible and auditable. Every build gets a new tag. |
+| ECR lifecycle policy (`tag_status = "any"`, keep 10) | Old images are deleted automatically, which keeps storage costs bounded. |
+| `scan_on_push` | Every pushed image is scanned for known vulnerabilities. |
+| `force_delete = true` (lab only) | Lets `destroy` remove a repository that still contains images. In real production it stays `false` so images cannot be lost by accident. |
+| `manage_master_user_password = true` | RDS generates the password and stores it in Secrets Manager. It never appears in the Terraform code, the plan or the state. |
+| RDS in private subnets, `publicly_accessible = false`, encrypted | The database is reachable only from inside the VPC, and its storage is encrypted at rest. |
+| RDS security group built from a map (`allowed_security_groups`) | Ingress on 5432 only from the EKS cluster security group (carried by the nodes) and the bastion. Fixed keys (`eks_nodes`, `bastion`) because `for_each` keys must be known at plan time. |
+| Lab RDS settings | `multi_az = false`, `skip_final_snapshot = true`, `deletion_protection = false`, 1 day of backups: cheap and destroyable. Real production would invert all four. |
+| The RDS security group lives in the `rds` module | The rule belongs with the resource it protects; the environment only says which security groups are allowed. |
 
 ## Prerequisites
 
@@ -159,15 +178,52 @@ aws eks update-kubeconfig --region eu-west-3 --name prod-eks-cluster
 kubectl get nodes
 ```
 
-The bastion is re-created whenever its cloud-init template changes. If SSH warns that the host identification has changed, remove the old key with `ssh-keygen -R <ip>`.
+Run every `terraform output` command from `terraform/environments/prod`: outputs are read from the state of the current folder.
 
-### 4. Destroy
+The bastion is re-created whenever its cloud-init template changes, which also wipes its kubeconfig: run `aws eks update-kubeconfig` again after a re-creation. If SSH warns that the host identification has changed, remove the old key with `ssh-keygen -R <ip>`.
+
+### 4. Test ECR
+
+From the admin workstation (the bastion role deliberately has no ECR permissions):
+
+```bash
+REPO=$(terraform output -raw ecr_repository_url)
+aws ecr get-login-password --region eu-west-3 | docker login --username AWS --password-stdin "${REPO%%/*}"
+
+docker pull nginx:alpine
+docker tag nginx:alpine "$REPO:v1"
+docker push "$REPO:v1"            # a second push of v1 with another image is refused: tags are immutable
+
+kubectl run test-ecr --image="$REPO:v1"
+kubectl get pod test-ecr          # Running: the nodes pull from ECR through their role
+kubectl delete pod test-ecr
+```
+
+### 5. Test RDS
+
+The database is private, so the test runs from a pod inside the cluster:
+
+```bash
+eval "$(terraform output -raw rds_get_password_command)"   # prints the password from Secrets Manager
+terraform output -raw rds_address
+
+kubectl run psql --image=postgres:17 --restart=Never -- sleep 3600
+kubectl exec -it psql -- psql -h <rds_address> -U <username> -d <db_name>
+# then: SELECT version();
+kubectl delete pod psql
+```
+
+`kubectl run -it ... psql` does not work well here: the pod starts before you can type the password. Keeping a sleeping pod and attaching with `kubectl exec -it` gives an interactive prompt.
+
+### 6. Destroy
 
 ```bash
 terraform destroy
 terraform state list   # should be empty
 rm -f tfplan
 ```
+
+Never run `destroy` in `backend_s3`: the bucket holds the state of every environment. It is protected by `prevent_destroy`, so Terraform refuses and nothing is deleted.
 
 ## Costs
 
@@ -180,8 +236,10 @@ Nothing is free while the environment is running. Rough estimates, excluding tax
 | NAT Gateway | ≈ $0.05/h + data |
 | t3.micro bastion | ≈ $0.01/h |
 | Public IPs | ≈ $0.005/h each |
+| RDS db.t4g.micro (single AZ) | ≈ $0.02/h |
+| ECR, Secrets Manager | a few cents per month |
 
-About $0.30/h in total, so $2–3 per work session. The main risk is forgetting the `destroy`: an environment left running for a month costs over $200. An AWS Budgets alert sends an email when spending goes over the limit.
+About $0.32/h in total, so $2–3 per work session. The main risk is forgetting the `destroy`: an environment left running for a month costs over $200. An AWS Budgets alert sends an email when spending goes over the limit.
 
 ## Security
 
@@ -189,11 +247,13 @@ About $0.30/h in total, so $2–3 per work session. The main risk is forgetting 
 - `terraform.tfvars` is not committed.
 - No AWS access keys are stored on the bastion: it uses temporary credentials from its instance IAM role.
 - The bastion's IAM role can only describe clusters whose name starts with the environment name.
+- The RDS master password is generated and stored by Secrets Manager; Terraform only knows the secret's ARN.
+- The database accepts connections only from the cluster and bastion security groups.
 
 ## Roadmap
 
 - Close public access to the EKS API, so the cluster is reachable only from the bastion
-- RDS PostgreSQL in private subnets with its password in Secrets Manager, and an ECR repository
+- Sync the RDS secret into Kubernetes with External Secrets, then deploy an application that uses the database
 - Configure the bastion with Ansible
 - Deploy applications with ArgoCD (GitOps)
 - Replace SSH access with Tailscale (installed by cloud-init)
