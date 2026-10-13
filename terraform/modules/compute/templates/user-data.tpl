@@ -26,3 +26,4 @@ runcmd:
   # kubectl, version alignée sur le cluster
   - curl -sSL "https://dl.k8s.io/release/v${kubectl_version}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
   - chmod +x /usr/local/bin/kubectl
+  - echo 'aws eks update-kubeconfig --region eu-west-3 --name prod-eks-cluster > /dev/null 2>&1' >> /home/${username}/.bashrc

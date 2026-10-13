@@ -131,3 +131,33 @@ variable "lifecycle_policy_max_image_count" {
   type        = number
   default     = 10
 }
+
+variable "instance_class" {
+  description = "The instance class for the RDS database."
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "allocated_storage" {
+  description = "The allocated storage size in gigabytes for the RDS database."
+  type        = number
+  default     = 20
+}
+
+variable "db_engine" {
+  description = "The database engine for the RDS instance (e.g., mysql, postgres)."
+  type        = string
+  default     = "postgres"
+}
+
+variable "engine_version" {
+  description = "The version of the database engine for the RDS instance."
+  type        = string
+  default     = "15"
+}
+
+variable "db_name" {
+  description = "The name of the database to create when the RDS instance is created."
+  type        = string
+  default     = "mydatabase"
+}
