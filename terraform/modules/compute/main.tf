@@ -12,7 +12,10 @@ resource "aws_instance" "server" {
     kubectl_version = var.kubectl_version
   })
 
+  user_data_replace_on_change = true
+
   tags = {
     Name = var.instance_name
+    Role = "bastion"
   }
 }
