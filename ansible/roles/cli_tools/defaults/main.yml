@@ -16,3 +16,5 @@ helm_archive: "helm-v{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
 helm_url: "https://get.helm.sh/{{ helm_archive }}"
 helm_tmp_dir: /tmp/helm
 helm_bin: /usr/local/bin/helm
+
+trivy_archive: "trivy_0.76.0_linux-ARM64.tar.gz"

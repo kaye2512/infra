@@ -8,3 +8,5 @@
 - name: Install Helm
   ansible.builtin.import_tasks: helm.yml
 
+- name: Install Trivy
+  ansible.builtin.import_tasks: trivy.yml
