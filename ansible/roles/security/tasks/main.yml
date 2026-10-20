@@ -1,0 +1,6 @@
+---
+- name: Install package security
+  ansible.builtin.apt:
+    name:
+      - fail2ban
+      - ufw

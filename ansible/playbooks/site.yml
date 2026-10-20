@@ -1,0 +1,13 @@
+---
+- name: Install package and update 
+  become: true
+  hosts: role_bastion
+  gather_facts: true
+
+  roles:
+   - common
+   - security
+   - docker
+   - cli_tools
+   # - jenkins
+   # - node_exporter

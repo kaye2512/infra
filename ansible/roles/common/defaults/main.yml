@@ -1,0 +1,10 @@
+---
+common_packages:
+  - python3-debian
+  - git
+  - curl
+  - vim
+  - htop
+  - unzip
+  - ca-certificates
+  - jq

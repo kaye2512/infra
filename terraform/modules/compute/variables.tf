@@ -44,9 +44,3 @@ variable "ssh_public_key" {
   type        = string
   description = "The SSH public key to add to the EC2 instance for the specified user."
 }
-
-variable "kubectl_version" {
-  type        = string
-  description = "The version of kubectl to install on the EC2 instance."
-  default     = "1.36.4"
-}

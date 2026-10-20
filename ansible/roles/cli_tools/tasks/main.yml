@@ -1,0 +1,10 @@
+---
+- name: Install Kubectl packages
+  ansible.builtin.import_tasks: kubectl.yml
+
+- name: Install Awscli 
+  ansible.builtin.import_tasks: aws_cli.yml
+
+- name: Install Helm
+  ansible.builtin.import_tasks: helm.yml
+

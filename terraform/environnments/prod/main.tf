@@ -24,7 +24,6 @@ module "compute" {
   hostname          = var.hostname
   username          = var.username
   ssh_public_key    = var.ssh_public_key
-  kubectl_version   = var.kubectl_version
 }
 
 module "eks" {
