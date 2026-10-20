@@ -4,6 +4,8 @@
     name: trivy
     types: deb
     uris: "https://aquasecurity.github.io/trivy-repo/deb"
+    suites: generic   
+    components: main
     signed_by: "https://aquasecurity.github.io/trivy-repo/deb/public.key"
     state: present
 

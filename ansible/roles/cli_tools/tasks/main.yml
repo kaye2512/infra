@@ -10,3 +10,6 @@
 
 - name: Install Trivy
   ansible.builtin.import_tasks: trivy.yml
+
+- name: Configure kubectl access to eks
+  ansible.builtin.import_tasks: kubeconfig.yml

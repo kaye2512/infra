@@ -1,6 +1,4 @@
 ---
-# Un fichier .sources par dépôt, réécrit en entier : pas de doublon au changement de version.
-# La clé est téléchargée par le module lui-même via signed_by.
 - name: Add Kubernetes apt repository
   ansible.builtin.deb822_repository:
     name: kubernetes
