@@ -24,6 +24,7 @@ module "compute" {
   hostname          = var.hostname
   username          = var.username
   ssh_public_key    = var.ssh_public_key
+  ecr_repository_arn = module.registry.repository_arn
 }
 
 module "eks" {
@@ -49,6 +50,15 @@ resource "aws_vpc_security_group_ingress_rule" "cluster_api_from_bastion" {
   ip_protocol                  = "tcp"
   from_port                    = 443
   to_port                      = 443
+}
+
+resource "aws_vpc_security_group_ingress_rule" "node_exporter_from_eks" {
+  description                  = "Prometheus (EKS) vers node_exporter du bastion"
+  security_group_id            = module.security.public_sg_id
+  referenced_security_group_id = module.eks.cluster_security_group_id
+  ip_protocol                  = "tcp"
+  from_port                    = 9100
+  to_port                      = 9100
 }
 
 module "registry" {

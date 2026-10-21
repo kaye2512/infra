@@ -11,6 +11,10 @@ resource "aws_instance" "server" {
     ssh_public_key = var.ssh_public_key
   })
 
+  metadata_options {
+    http_tokens = "required"
+  }
+
   user_data_replace_on_change = true
 
   tags = {

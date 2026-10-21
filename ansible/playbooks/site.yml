@@ -9,5 +9,5 @@
     - { role: security, tags: [security] }
     - { role: docker, tags: [docker] }
     - { role: cli_tools, tags: [cli_tools] }
-    # - { role: jenkins, tags: [jenkins] }
-    # - { role: node_exporter, tags: [node_exporter] }
+    - { role: jenkins, tags: [jenkins] }
+    - { role: node_exporter, tags: [node_exporter] }

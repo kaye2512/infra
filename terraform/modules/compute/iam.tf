@@ -38,3 +38,39 @@ resource "aws_iam_instance_profile" "bastion" {
   name = "${var.environment}-bastion-profile"
   role = aws_iam_role.bastion.name
 }
+
+resource "aws_iam_role_policy" "bastion_ecr" {
+  name = "${var.environment}-bastion-ecr-push"
+  role = aws_iam_role.bastion.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # Le jeton de connexion vaut pour tout le registre du compte :
+        # AWS n'accepte pas de le limiter à un dépôt.
+        Sid      = "EcrLogin"
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        # Push (et pull, pour réutiliser les couches en cache) sur NOTRE dépôt uniquement
+        Sid    = "EcrPushPull"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:DescribeImages",
+          "ecr:ListImages"
+        ]
+        Resource = var.ecr_repository_arn
+      }
+    ]
+  })
+}

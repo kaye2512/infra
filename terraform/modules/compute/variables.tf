@@ -44,3 +44,8 @@ variable "ssh_public_key" {
   type        = string
   description = "The SSH public key to add to the EC2 instance for the specified user."
 }
+
+variable "ecr_repository_arn" {
+  description = "ARN du dépôt ECR dans lequel Jenkins pousse les images"
+  type        = string
+}
