@@ -16,7 +16,8 @@ Production-style AWS infrastructure, created and destroyed on demand, written en
 - [x] PostgreSQL database (RDS) in private subnets, master password managed by Secrets Manager
 - [x] Close public access to the EKS API: the cluster is reachable only from the bastion
 - [x] Bastion configured with Ansible: dynamic AWS inventory, 6 idempotent roles (base packages, security, Docker, CLI tools, Jenkins, node_exporter)
-- [ ] GitOps deployment with ArgoCD
+- [x] GitOps with Argo CD: installed by Ansible (pinned Helm chart), demo app deployed from `gitops/` with automated sync, `prune` and `selfHeal`
+- [ ] CI pipeline in Jenkins: build, Trivy scan, push to ECR, tag update in `gitops/`
 - [ ] Monitoring (Prometheus, Grafana)
 - [ ] Bastion access through Tailscale, port 22 closed
 
@@ -79,8 +80,14 @@ ansible/
     ├── docker/          # Docker Engine from the official repository
     ├── cli_tools/       # kubectl, AWS CLI v2, Helm, Trivy, kubeconfig
     ├── jenkins/         # Jenkins LTS + Java, listens on 127.0.0.1 only
-    └── node_exporter/   # Prometheus metrics, dedicated system user
-gitops/                  # coming soon
+    ├── node_exporter/   # Prometheus metrics, dedicated system user
+    └── argocd/          # Argo CD Helm chart (pinned), initial admin password
+gitops/
+├── apps/
+│   └── demo.yaml        # Argo CD Application: which folder, which cluster, which namespace
+└── demo/                # plain manifests read by Argo CD
+    ├── deployment.yaml  # 2 replicas, image from ECR, requests/limits, readiness probe
+    └── service.yaml     # ClusterIP
 ```
 
 Each environment is a folder that calls the modules and is configured through its own `terraform.tfvars`. Adding a `dev` environment means copying the `prod` folder and changing its variables. Rules that connect two modules (such as the bastion-to-cluster security group rule) live in the environment folder, so no module needs to know about another.
@@ -138,6 +145,19 @@ Each environment is a folder that calls the modules and is configured through it
 | Handlers + `meta: flush_handlers` | Services restart only when their configuration changed, and before the role waits for them to listen. |
 | node_exporter on the private IP, dedicated user, hardened unit | Reachable from the VPC only, runs without root, and `ProtectSystem=strict` prevents it from writing to the system. |
 | One tag per role | `--tags jenkins` re-runs a single role, which also helps when a broken apt repository blocks the earlier roles. |
+
+### Argo CD and GitOps
+
+| Decision | Rationale |
+|---|---|
+| Argo CD installed by Ansible, from the bastion | The bootstrap problem: Argo CD cannot install itself. Terraform cannot do it either, since it runs on the workstation and the Kubernetes API is private. The bastion already has Helm and a kubeconfig, so an Ansible role with `kubernetes.core.helm` installs it. |
+| Pinned chart version | The chart version (not the Argo CD version) is pinned; `helm search repo argo/argo-cd --versions` shows the matching app version. |
+| `python3-kubernetes` on the bastion, API calls as `prod` | The `kubernetes.core` modules run on the target and need the Python client. `become: false` makes them use the kubeconfig of `prod`, not `/root/.kube/config`. |
+| `argocd-server` stays `ClusterIP` | The UI is reached with `kubectl port-forward` on the bastion and an SSH tunnel from the workstation; nothing is exposed on the Internet. |
+| Public repository | Argo CD reads it without credentials. In return, no secret may ever be committed: secrets will go through External Secrets. |
+| Automated sync with `prune` and `selfHeal` | Git is the only source of truth: a manual `kubectl scale` is reverted within seconds, and a manifest removed from Git is removed from the cluster. |
+| Image from ECR with a fixed tag (`v1`), never `latest` | The repository is immutable, and Argo CD only sees a change when the manifest changes. The CI pipeline will write a new tag per build. |
+| `requests`/`limits` and a readiness probe | Two `t3.medium` nodes also run Argo CD and system pods. The probe decides when a pod receives traffic and when Argo CD reports `Healthy`. |
 
 ## Prerequisites
 
@@ -270,7 +290,41 @@ kubectl delete pod psql
 
 `kubectl run -it ... psql` does not work well here: the pod starts before you can type the password. Keeping a sleeping pod and attaching with `kubectl exec -it` gives an interactive prompt.
 
-### 7. Destroy
+### 7. Deploy with Argo CD
+
+```bash
+ansible-playbook playbooks/site.yml --tags argocd   # installs the chart, prints the admin password
+
+# on the bastion: push the demo image (the ECR repository is emptied by every destroy)
+REPO=<ecr_repository_url>
+aws ecr get-login-password --region eu-west-3 | docker login --username AWS --password-stdin "${REPO%%/*}"
+docker pull nginx:alpine && docker tag nginx:alpine "$REPO:v1" && docker push "$REPO:v1"
+
+# on the bastion, from a clone of this repository
+kubectl apply -f gitops/apps/demo.yaml
+kubectl get applications -n argocd   # Synced / Healthy
+kubectl get pods -n demo -o wide     # one pod per node
+```
+
+Argo CD polls Git about every 3 minutes. To check right away:
+
+```bash
+kubectl -n argocd annotate application demo argocd.argoproj.io/refresh=normal --overwrite
+```
+
+Argo CD UI (two tunnels):
+
+```bash
+# on the bastion
+kubectl port-forward svc/argocd-server -n argocd 8081:443
+# on the workstation
+ssh -i ~/.ssh/<key> -L 8081:localhost:8081 prod@<bastion_public_ip>
+# then https://localhost:8081, user admin (self-signed certificate warning is expected)
+```
+
+GitOps checks performed: changing `replicas` in Git adds a pod; `kubectl scale --replicas=5` is reverted to 2 by `selfHeal`; a ConfigMap removed from Git disappears from the cluster with `prune`.
+
+### 8. Destroy
 
 ```bash
 terraform destroy
@@ -308,11 +362,13 @@ About $0.36/h in total, so $2–3 per work session. The main risk is forgetting 
 - Jenkins listens on `127.0.0.1` only and is reached through an SSH tunnel.
 - The `jenkins` user is in the `docker` group, which makes it root on the bastion in practice. Acceptable for a single-user lab; rootless Docker or Kaniko would remove this.
 - Every downloaded binary (Helm, node_exporter) is checked against its published SHA256 checksum, and every apt repository is pinned to its signing key with `signed-by`.
+- The repository is public and read by Argo CD: it never contains secrets (`terraform.tfvars`, kubeconfigs and passwords are ignored by Git).
+- The Argo CD UI is not exposed: `ClusterIP` service, reached through `kubectl port-forward` and an SSH tunnel.
 
 ## Roadmap
 
-- Install ArgoCD and deploy applications with GitOps
-- First Jenkins pipeline: build, Trivy scan, push to ECR, update the GitOps repository
+- First Jenkins pipeline: build, Trivy scan, push to ECR with the commit hash as tag, update the tag in `gitops/`
+- Apply the Argo CD Application from the `argocd` role, then move to the app-of-apps pattern (one root Application for `gitops/apps/`)
 - Monitoring with Prometheus and Grafana in the cluster, scraping the bastion's node_exporter
 - Configure Jenkins as code (JCasC): plugins, admin user and jobs survive a re-created bastion
 - Sync the RDS secret into Kubernetes with External Secrets, then deploy an application that uses the database
