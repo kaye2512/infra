@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/kaye2512/infra.git
-    targetRevision:  feature/gitops
+    targetRevision:  main
     path: gitops/demo    
   destination:
     server: https://kubernetes.default.svc 
