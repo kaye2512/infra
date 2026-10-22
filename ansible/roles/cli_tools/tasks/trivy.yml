@@ -1,0 +1,16 @@
+---
+- name: Add Trivy apt repository
+  ansible.builtin.deb822_repository:
+    name: trivy
+    types: deb
+    uris: "https://aquasecurity.github.io/trivy-repo/deb"
+    suites: generic   
+    components: main
+    signed_by: "https://aquasecurity.github.io/trivy-repo/deb/public.key"
+    state: present
+
+- name: Install trivy
+  ansible.builtin.apt:
+    name: trivy
+    state: present
+    update_cache: true

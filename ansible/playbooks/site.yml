@@ -1,0 +1,14 @@
+---
+- name: Install package
+  become: true
+  hosts: role_bastion
+  gather_facts: true
+
+  roles:
+    - { role: common, tags: [common] }
+    - { role: security, tags: [security] }
+    - { role: docker, tags: [docker] }
+    - { role: cli_tools, tags: [cli_tools] }
+    - { role: jenkins, tags: [jenkins] }
+    - { role: node_exporter, tags: [node_exporter] }
+    - { role: argocd, tags: [argocd] }

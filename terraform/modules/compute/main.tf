@@ -9,8 +9,11 @@ resource "aws_instance" "server" {
     hostname       = var.hostname
     username       = var.username
     ssh_public_key = var.ssh_public_key
-    kubectl_version = var.kubectl_version
   })
+
+  metadata_options {
+    http_tokens = "required"
+  }
 
   user_data_replace_on_change = true
 

@@ -1,0 +1,33 @@
+---
+plugin: amazon.aws.aws_ec2
+regions:
+  - eu-west-3
+
+# Ne garder que le bastion de cet environnement, s'il tourne.
+# Les noms de filtre sont ceux de l'API EC2 DescribeInstances.
+filters:
+  instance-state-name: running
+  tag:Role: bastion
+  tag:Environment: prod
+
+# Nom affiché dans l'inventaire : le tag Name, plus lisible qu'une IP qui change.
+# Si le tag manque, on utilise l'IP publique.
+hostnames:
+  - tag:Name
+  - ip-address
+
+# Adresse réellement utilisée par SSH : l'IP publique.
+# À changer pour l'IP privée ou Tailscale le jour où tu passes par un VPN.
+compose:
+  ansible_host: public_ip_address
+
+# Groupes créés à partir des tags : role_bastion, env_prod
+keyed_groups:
+  - key: tags.Role
+    prefix: role
+  - key: tags.Environment
+    prefix: env
+
+# Échouer clairement si une expression de compose ou keyed_groups est fausse,
+# plutôt que de l'ignorer en silence.
+strict: true

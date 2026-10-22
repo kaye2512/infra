@@ -1,0 +1,15 @@
+---
+- name: Install Kubectl packages
+  ansible.builtin.import_tasks: kubectl.yml
+
+- name: Install Awscli 
+  ansible.builtin.import_tasks: aws_cli.yml
+
+- name: Install Helm
+  ansible.builtin.import_tasks: helm.yml
+
+- name: Install Trivy
+  ansible.builtin.import_tasks: trivy.yml
+
+- name: Configure kubectl access to eks
+  ansible.builtin.import_tasks: kubeconfig.yml

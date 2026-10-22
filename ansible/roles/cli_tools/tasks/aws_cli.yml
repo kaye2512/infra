@@ -1,0 +1,17 @@
+---
+- name: Download and extract AWS CLI v2 installer
+  ansible.builtin.unarchive:
+    src: "{{ awscli_url }}"
+    dest: /tmp
+    remote_src: true
+    creates: "{{ awscli_bin }}"
+
+- name: Install AWS CLI v2
+  ansible.builtin.command:
+    cmd: /tmp/aws/install
+    creates: "{{ awscli_bin }}"
+
+- name: Remove AWS CLI installer files
+  ansible.builtin.file:
+    path: /tmp/aws
+    state: absent

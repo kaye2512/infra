@@ -101,13 +101,6 @@ variable "ami_type" {
   default     = "AL2023_x86_64_STANDARD"
 }
 
-variable "kubectl_version" {
-  type        = string
-  description = "The version of kubectl to install on the EC2 instance."
-  default     = "1.36.4"
-}
-
-
 variable "image_tag_mutability" {
   description = "The tag mutability setting for the repository. Valid values are 'MUTABLE' or 'IMMUTABLE'."
   type        = string

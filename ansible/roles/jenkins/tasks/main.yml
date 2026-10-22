@@ -1,0 +1,73 @@
+---
+- name: Install Java runtime
+  ansible.builtin.apt:
+    name: "{{ jenkins_java_package }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Add Jenkins LTS apt repository
+  ansible.builtin.deb822_repository:
+    name: jenkins
+    types: deb
+    uris: "{{ jenkins_repo_url }}"
+    suites: binary/       
+    signed_by: "{{ jenkins_repo_key_url }}"
+    state: present
+
+- name: Install Jenkins
+  ansible.builtin.apt:
+    name: jenkins
+    state: present
+    update_cache: true
+
+- name: Create Jenkins systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/jenkins.service.d
+    state: directory
+    mode: "0755"
+
+- name: Configure Jenkins listen address and port
+  ansible.builtin.template:
+    src: override.conf.j2
+    dest: /etc/systemd/system/jenkins.service.d/override.conf
+    mode: "0644"
+  notify: Restart jenkins
+
+- name: Allow jenkins to use Docker
+  ansible.builtin.user:
+    name: jenkins
+    groups: docker
+    append: true
+  notify: Restart jenkins   
+
+- name: Ensure Jenkins is started and enabled at boot
+  ansible.builtin.systemd_service:
+    name: jenkins
+    state: started
+    enabled: true
+
+- name: Apply pending Jenkins restart
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Jenkins to listen
+  ansible.builtin.wait_for:
+    host: "{{ jenkins_listen_address }}"
+    port: "{{ jenkins_http_port }}"
+    timeout: 180
+
+- name: Check for initial admin password
+  ansible.builtin.stat:
+    path: "{{ jenkins_home }}/secrets/initialAdminPassword"
+  register: jenkins_initial_password_file
+
+- name: Read initial admin password
+  ansible.builtin.slurp:
+    src: "{{ jenkins_home }}/secrets/initialAdminPassword"
+  register: jenkins_initial_password
+  when: jenkins_initial_password_file.stat.exists
+
+- name: Show initial admin password
+  ansible.builtin.debug:
+    msg: "Jenkins initial admin password: {{ jenkins_initial_password.content | b64decode | trim }}"
+  when: jenkins_initial_password_file.stat.exists

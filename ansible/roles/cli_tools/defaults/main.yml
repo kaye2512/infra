@@ -1,0 +1,18 @@
+---
+kubectl_version: "1.36"
+
+awscli_url: "https://awscli.amazonaws.com/awscli-exe-linux-{{ ansible_architecture }}.zip"
+
+awscli_bin: /usr/local/bin/aws
+
+helm_version: "4.3.1"
+
+helm_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+helm_arch: "{{ helm_arch_map[ansible_architecture] }}"
+
+helm_archive: "helm-v{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+helm_url: "https://get.helm.sh/{{ helm_archive }}"
+helm_tmp_dir: /tmp/helm
+helm_bin: /usr/local/bin/helm

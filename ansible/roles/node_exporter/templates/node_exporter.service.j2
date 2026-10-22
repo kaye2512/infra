@@ -1,0 +1,21 @@
+# Géré par Ansible : ne pas modifier à la main
+[Unit]
+Description=Prometheus Node Exporter
+Documentation=https://github.com/prometheus/node_exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ node_exporter_user }}
+Group={{ node_exporter_user }}
+ExecStart={{ node_exporter_bin }} --web.listen-address={{ node_exporter_listen_address }}:{{ node_exporter_port }}
+Restart=on-failure
+
+# Durcissement : le service ne peut ni gagner de privilèges, ni écrire sur le système
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
