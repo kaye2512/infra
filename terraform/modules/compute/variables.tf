@@ -49,3 +49,9 @@ variable "ecr_repository_arn" {
   description = "ARN du dépôt ECR dans lequel Jenkins pousse les images"
   type        = string
 }
+
+variable "root_volume_size" {
+  description = "Taille du disque racine du bastion (Go) : Docker, Jenkins et Trivy en ont besoin"
+  type        = number
+  default     = 30
+}
