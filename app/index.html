@@ -1,0 +1,321 @@
+Claude
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Index · HTML
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Café Lumen — Torréfacteur & coffee shop</title>
+  <meta name="description" content="Café Lumen, coffee shop et torréfaction artisanale : cafés de spécialité, pâtisseries maison et brunch le week-end.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream: #f6efe4;
+      --paper: #fbf7f1;
+      --espresso: #2b1a12;
+      --roast: #5a3825;
+      --caramel: #c8864a;
+      --sage: #7d8b6a;
+      --ink-soft: #6b5a4e;
+      --line: #e3d6c4;
+      --radius: 18px;
+      --shadow: 0 18px 40px -22px rgba(43, 26, 18, .45);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      background: var(--paper);
+      color: var(--espresso);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    img { max-width: 100%; display: block; }
+    a { color: inherit; text-decoration: none; }
+    .wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
+    h1, h2, h3 { font-family: "Fraunces", Georgia, serif; line-height: 1.1; letter-spacing: -.01em; }
+ 
+    /* Navigation */
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(251, 247, 241, .85);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+    .logo { display: flex; align-items: center; gap: 10px; font-family: "Fraunces", serif; font-weight: 700; font-size: 1.3rem; }
+    .logo-mark {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, var(--caramel), var(--roast) 70%);
+      position: relative;
+    }
+    .logo-mark::after {
+      content: ""; position: absolute; inset: 7px 15px; border-radius: 50%;
+      background: var(--cream); transform: rotate(18deg);
+    }
+    .nav ul { display: flex; gap: 28px; list-style: none; font-size: .95rem; color: var(--ink-soft); }
+    .nav ul a:hover { color: var(--espresso); }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 22px; border-radius: 999px;
+      background: var(--espresso); color: var(--cream);
+      font-weight: 600; font-size: .95rem;
+      transition: transform .2s, background .2s;
+    }
+    .btn:hover { background: var(--roast); transform: translateY(-1px); }
+    .btn.ghost { background: transparent; color: var(--espresso); border: 1.5px solid var(--espresso); }
+    .btn.ghost:hover { background: var(--espresso); color: var(--cream); }
+ 
+    /* Hero */
+    .hero { padding: 72px 0 96px; }
+    .hero-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 56px; align-items: center; }
+    .eyebrow {
+      display: inline-block; padding: 6px 14px; border-radius: 999px;
+      background: var(--cream); color: var(--roast);
+      font-size: .8rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    }
+    .hero h1 { font-size: clamp(2.6rem, 6vw, 4.6rem); margin: 20px 0 22px; }
+    .hero h1 em { font-style: italic; color: var(--caramel); }
+    .hero p { font-size: 1.12rem; color: var(--ink-soft); max-width: 34ch; }
+    .hero-actions { display: flex; gap: 14px; margin-top: 34px; flex-wrap: wrap; }
+    .hero-art {
+      aspect-ratio: 4 / 5; border-radius: 220px 220px var(--radius) var(--radius);
+      background:
+        radial-gradient(circle at 50% 38%, #f3d9b8 0 18%, transparent 19%),
+        radial-gradient(circle at 50% 38%, var(--roast) 0 27%, transparent 28%),
+        radial-gradient(circle at 50% 38%, var(--cream) 0 33%, transparent 34%),
+        linear-gradient(160deg, var(--caramel), var(--roast) 75%);
+      box-shadow: var(--shadow);
+      position: relative; overflow: hidden;
+    }
+    .hero-art::before, .hero-art::after {
+      content: ""; position: absolute; left: 50%; width: 6px; height: 70px; border-radius: 6px;
+      background: rgba(246, 239, 228, .55); filter: blur(2px);
+      animation: steam 3.2s ease-in-out infinite;
+    }
+    .hero-art::before { top: 12%; transform: translateX(-18px); }
+    .hero-art::after { top: 9%; transform: translateX(12px); animation-delay: 1.2s; }
+    @keyframes steam {
+      0% { opacity: 0; translate: 0 20px; }
+      40% { opacity: 1; }
+      100% { opacity: 0; translate: 0 -30px; }
+    }
+    .badge-float {
+      position: absolute; bottom: 22px; left: -26px;
+      background: var(--paper); border-radius: 14px; padding: 14px 18px;
+      box-shadow: var(--shadow); font-size: .85rem;
+    }
+    .badge-float strong { display: block; font-family: "Fraunces", serif; font-size: 1.4rem; }
+    .hero-visual { position: relative; }
+ 
+    /* Sections */
+    section { padding: 88px 0; }
+    .section-head { max-width: 560px; margin-bottom: 48px; }
+    .section-head h2 { font-size: clamp(2rem, 4vw, 2.9rem); margin: 14px 0 12px; }
+    .section-head p { color: var(--ink-soft); }
+ 
+    .values { background: var(--espresso); color: var(--cream); }
+    .values .eyebrow { background: rgba(246, 239, 228, .1); color: var(--caramel); }
+    .values .section-head p { color: #cdbba9; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .card {
+      border: 1px solid rgba(246, 239, 228, .15); border-radius: var(--radius);
+      padding: 30px; background: rgba(246, 239, 228, .04);
+    }
+    .card .icon { font-size: 1.9rem; }
+    .card h3 { font-size: 1.35rem; margin: 16px 0 8px; }
+    .card p { color: #cdbba9; font-size: .97rem; }
+ 
+    /* Menu */
+    .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px 56px; }
+    .menu-cat h3 { font-size: 1.5rem; margin-bottom: 14px; color: var(--roast); }
+    .item { display: flex; align-items: baseline; gap: 12px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+    .item .name { font-weight: 600; }
+    .item .desc { display: block; font-size: .88rem; color: var(--ink-soft); font-weight: 400; }
+    .item .dots { flex: 1; }
+    .item .price { font-family: "Fraunces", serif; font-weight: 600; font-size: 1.1rem; white-space: nowrap; }
+ 
+    /* Visit */
+    .visit { background: var(--cream); }
+    .visit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .panel { background: var(--paper); border-radius: var(--radius); padding: 34px; box-shadow: var(--shadow); }
+    .panel h3 { font-size: 1.4rem; margin-bottom: 18px; }
+    .hours { list-style: none; }
+    .hours li { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); }
+    .hours li:last-child { border: none; }
+    .hours .closed { color: var(--sage); font-weight: 600; }
+    .panel address { font-style: normal; color: var(--ink-soft); margin-bottom: 22px; }
+ 
+    /* Footer */
+    footer { padding: 34px 0; border-top: 1px solid var(--line); font-size: .9rem; color: var(--ink-soft); }
+    .foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .version {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem;
+      background: var(--cream); color: var(--roast); padding: 6px 12px; border-radius: 999px;
+    }
+ 
+    /* Responsive */
+    @media (max-width: 860px) {
+      .hero-grid, .visit-grid, .menu-grid { grid-template-columns: 1fr; }
+      .cards { grid-template-columns: 1fr; }
+      .nav ul { display: none; }
+      .hero { padding-top: 40px; }
+      .hero-visual { max-width: 380px; margin-inline: auto; width: 100%; }
+      .badge-float { left: 12px; }
+      section { padding: 64px 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-art::before, .hero-art::after { animation: none; }
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+ 
+  <header>
+    <nav class="wrap nav">
+      <a href="#" class="logo"><span class="logo-mark" aria-hidden="true"></span>Café Lumen</a>
+      <ul>
+        <li><a href="#maison">La maison</a></li>
+        <li><a href="#carte">La carte</a></li>
+        <li><a href="#visite">Nous trouver</a></li>
+      </ul>
+      <a href="#visite" class="btn">Réserver</a>
+    </nav>
+  </header>
+ 
+  <main>
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <span class="eyebrow">Torréfié sur place</span>
+          <h1>Le café, <em>lentement</em>, comme il se doit.</h1>
+          <p>Des grains de spécialité torréfiés chaque matin, des pâtisseries maison et une salle baignée de lumière pour prendre le temps.</p>
+          <div class="hero-actions">
+            <a href="#carte" class="btn">Voir la carte →</a>
+            <a href="#visite" class="btn ghost">Nos horaires</a>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="hero-art" role="img" aria-label="Illustration d'une tasse de café vue de dessus"></div>
+          <div class="badge-float"><strong>12</strong>origines en rotation</div>
+        </div>
+      </div>
+    </section>
+ 
+    <section class="values" id="maison">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="eyebrow">La maison</span>
+          <h2>Du grain à la tasse, sans raccourci.</h2>
+          <p>Nous travaillons en direct avec de petites fermes et torréfions par petits lots pour révéler chaque terroir.</p>
+        </div>
+        <div class="cards">
+          <article class="card">
+            <div class="icon" aria-hidden="true">🌱</div>
+            <h3>Sourcing direct</h3>
+            <p>Des cafés tracés jusqu'à la parcelle, achetés à un prix juste pour les producteurs.</p>
+          </article>
+          <article class="card">
+            <div class="icon" aria-hidden="true">🔥</div>
+            <h3>Torréfaction maison</h3>
+            <p>Des profils de torréfaction ajustés à chaque origine, en lots de 5 kg.</p>
+          </article>
+          <article class="card">
+            <div class="icon" aria-hidden="true">🥐</div>
+            <h3>Fait ici</h3>
+            <p>Viennoiseries, cookies et brunch préparés chaque jour dans notre cuisine.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+ 
+    <section id="carte">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="eyebrow">La carte</span>
+          <h2>Nos incontournables</h2>
+          <p>Lait d'avoine ou d'amande sans supplément. La carte des origines change chaque mois.</p>
+        </div>
+        <div class="menu-grid">
+          <div class="menu-cat">
+            <h3>Cafés</h3>
+            <div class="item"><span class="name">Espresso<span class="desc">Assemblage maison, notes cacao</span></span><span class="dots"></span><span class="price">2,50 €</span></div>
+            <div class="item"><span class="name">Flat white<span class="desc">Double ristretto, lait velouté</span></span><span class="dots"></span><span class="price">4,20 €</span></div>
+            <div class="item"><span class="name">Filtre V60<span class="desc">Origine du mois</span></span><span class="dots"></span><span class="price">4,80 €</span></div>
+            <div class="item"><span class="name">Cold brew<span class="desc">Infusé 18 heures</span></span><span class="dots"></span><span class="price">4,50 €</span></div>
+          </div>
+          <div class="menu-cat">
+            <h3>Gourmandises</h3>
+            <div class="item"><span class="name">Croissant au beurre<span class="desc">Pur beurre, feuilletage maison</span></span><span class="dots"></span><span class="price">2,20 €</span></div>
+            <div class="item"><span class="name">Cookie noisette<span class="desc">Chocolat noir 70 %</span></span><span class="dots"></span><span class="price">3,00 €</span></div>
+            <div class="item"><span class="name">Banana bread<span class="desc">Servi tiède, beurre salé</span></span><span class="dots"></span><span class="price">3,80 €</span></div>
+            <div class="item"><span class="name">Brunch du week-end<span class="desc">Samedi et dimanche, 10 h – 14 h</span></span><span class="dots"></span><span class="price">22,00 €</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+ 
+    <section class="visit" id="visite">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="eyebrow">Nous trouver</span>
+          <h2>Passez nous voir</h2>
+        </div>
+        <div class="visit-grid">
+          <div class="panel">
+            <h3>Horaires</h3>
+            <ul class="hours">
+              <li><span>Lundi</span><span class="closed">Fermé</span></li>
+              <li><span>Mardi – Vendredi</span><span>8 h – 18 h</span></li>
+              <li><span>Samedi</span><span>9 h – 19 h</span></li>
+              <li><span>Dimanche</span><span>9 h – 16 h</span></li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Adresse</h3>
+            <address>
+              12 rue des Torréfacteurs<br>
+              75000 Paris<br>
+              bonjour@cafe-lumen.example
+            </address>
+            <a href="#" class="btn">Réserver une table</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+ 
+  <footer>
+    <div class="wrap foot">
+      <span>© Café Lumen — site de démonstration</span>
+      <!-- Remplacé au build par le hash du commit (ARG APP_VERSION du Dockerfile) -->
+      <span class="version">version __VERSION__</span>
+    </div>
+  </footer>
+ 
+</body>
+</html>
+ 
+Claude a terminé sa réponse.
