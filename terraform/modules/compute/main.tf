@@ -15,6 +15,12 @@ resource "aws_instance" "server" {
     http_tokens = "required"
   }
 
+    root_block_device {
+    volume_size = var.root_volume_size
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
   user_data_replace_on_change = true
 
   tags = {
