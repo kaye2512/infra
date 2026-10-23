@@ -1,6 +1,11 @@
-# infra — AWS EKS platform with Terraform
+# infra — AWS EKS platform: Terraform, Ansible, Jenkins, Argo CD
 
-Production-style AWS infrastructure, created and destroyed on demand, written entirely in Terraform with hand-built modules (no community modules) to understand every building block of an EKS cluster.
+Production-style AWS platform, created and destroyed on demand. The infrastructure is written in Terraform with hand-built modules (no community modules) to understand every building block of an EKS cluster. Ansible configures the bastion, Jenkins builds and scans the images, and Argo CD deploys them with GitOps.
+
+```
+git push (app/) → Jenkins: build → Trivy scan → push to ECR (tag = commit hash)
+               → commit "deploy(demo): <hash> [skip ci]" in gitops/ → Argo CD syncs → rolling update on EKS
+```
 
 > Learning and showcase project. The environment is created at the start of a work session (`apply`) and destroyed at the end (`destroy`).
 
@@ -8,8 +13,8 @@ Production-style AWS infrastructure, created and destroyed on demand, written en
 
 - [x] Terraform state backend (versioned, encrypted S3 bucket with native locking)
 - [x] Multi-AZ network: VPC, public and private subnets across 3 AZs, Internet Gateway, NAT Gateway
-- [x] EC2 bastion configured with cloud-init, restricted SSH access
-- [x] EKS control plane (IAM role, restricted public endpoint + private endpoint)
+- [x] EC2 bastion with restricted SSH access (minimal cloud-init, the rest in Ansible)
+- [x] EKS control plane (IAM role, access entries)
 - [x] EKS worker nodes (managed node group, Amazon Linux 2023, one node per AZ)
 - [x] `kubectl` access from the bastion (instance IAM role, EKS access entry, private endpoint)
 - [x] Private container registry (ECR): immutable tags, scan on push, lifecycle policy
@@ -17,7 +22,7 @@ Production-style AWS infrastructure, created and destroyed on demand, written en
 - [x] Close public access to the EKS API: the cluster is reachable only from the bastion
 - [x] Bastion configured with Ansible: dynamic AWS inventory, 6 idempotent roles (base packages, security, Docker, CLI tools, Jenkins, node_exporter)
 - [x] GitOps with Argo CD: installed by Ansible (pinned Helm chart), demo app deployed from `gitops/` with automated sync, `prune` and `selfHeal`
-- [ ] CI pipeline in Jenkins: build, Trivy scan, push to ECR, tag update in `gitops/`
+- [x] CI pipeline in Jenkins: build, Trivy scan, push to ECR with immutable tags, tag update in `gitops/`, deployment by Argo CD
 - [ ] Monitoring (Prometheus, Grafana)
 - [ ] Bastion access through Tailscale, port 22 closed
 
@@ -82,6 +87,10 @@ ansible/
     ├── jenkins/         # Jenkins LTS + Java, listens on 127.0.0.1 only
     ├── node_exporter/   # Prometheus metrics, dedicated system user
     └── argocd/          # Argo CD Helm chart (pinned), initial admin password
+app/
+├── Dockerfile           # nginx:alpine + index.html, version injected with --build-arg
+└── index.html           # demo showcase site; shows the deployed version (commit hash)
+Jenkinsfile              # Prepare → Build → Scan → Push → Update GitOps
 gitops/
 ├── apps/
 │   └── demo.yaml        # Argo CD Application: which folder, which cluster, which namespace
@@ -124,6 +133,8 @@ Each environment is a folder that calls the modules and is configured through it
 | `default_tags` on the provider, `Role = "bastion"` on the instance | Every resource carries `Environment`, `Project` and `ManagedBy`. The `Role` tag is what the Ansible inventory filters on, which also keeps the EKS nodes (EC2 instances too) out of it. |
 | Minimal cloud-init, everything else in Ansible | cloud-init runs once, at first boot. Ansible can be re-run at any time, fixes drift, and its roles can be reused on servers outside AWS. cloud-init only creates the user, the SSH key and the hostname. |
 | Bastion `t3.medium` | Jenkins alone uses about 400 MB of RAM, and Docker builds need more: a `t3.micro` (1 GB) would run out of memory. |
+| Bastion root volume: 30 GB gp3, encrypted | The default 8 GB filled up with Docker, Jenkins, AWS CLI and the Trivy database (`no space left on device`). Encryption at rest is enabled; adding it forces a re-creation of the instance. |
+| Pinned Ubuntu release in the AMI filter | An unpinned filter picks the latest Ubuntu image: a re-created bastion silently moved to a new release that the roles were not tested on. The filter targets one release (e.g. `ubuntu-noble-24.04-*`); upgrading becomes a deliberate change. |
 | IMDSv2 required (`http_tokens = "required"`) | Protects the instance credentials against SSRF attacks. |
 | ECR push rights on the bastion role, scoped to the repository | Jenkins pushes images with the instance role. `ecr:GetAuthorizationToken` has to be `Resource: "*"`: the login token covers the whole registry. |
 | Port 9100 open only from the EKS cluster security group | The Prometheus running in the cluster will scrape node_exporter; nothing else can. |
@@ -158,6 +169,24 @@ Each environment is a folder that calls the modules and is configured through it
 | Automated sync with `prune` and `selfHeal` | Git is the only source of truth: a manual `kubectl scale` is reverted within seconds, and a manifest removed from Git is removed from the cluster. |
 | Image from ECR with a fixed tag (`v1`), never `latest` | The repository is immutable, and Argo CD only sees a change when the manifest changes. The CI pipeline will write a new tag per build. |
 | `requests`/`limits` and a readiness probe | Two `t3.medium` nodes also run Argo CD and system pods. The probe decides when a pod receives traffic and when Argo CD reports `Healthy`. |
+
+### CI pipeline (Jenkins)
+
+| Decision | Rationale |
+|---|---|
+| `Jenkinsfile` in the repository, job "Pipeline script from SCM" | The pipeline is versioned with the code it builds. |
+| Triggered manually (Poll SCM later) | Jenkins listens on `127.0.0.1`, so GitHub webhooks cannot reach it; exposing it would undo the tunnel-only access. |
+| Image tag = short commit hash | Unique, and it links each image to the exact code that produced it. `BUILD_NUMBER` restarts at 1 when the bastion is re-created and would collide with the immutable repository. |
+| AWS account ID read with `aws sts get-caller-identity` | Nothing account-specific is hard-coded in the public repository. |
+| Skip Build/Scan/Push if the tag already exists in ECR | The repository is immutable: re-running a build on the same commit would fail on push. `aws ecr describe-images` with `returnStatus` turns that into a skipped stage instead. |
+| Trivy: report HIGH + CRITICAL, fail on CRITICAL with `--ignore-unfixed` | A vulnerable image never reaches ECR, but the pipeline is not blocked by flaws nobody can fix yet. ECR `scan_on_push` adds a second check. |
+| ECR login with `aws ecr get-login-password` | A 12-hour token from the instance role: no registry password stored anywhere. |
+| Jenkins updates `gitops/`, never the cluster | `sed` writes the new image into `gitops/demo/deployment.yaml`, Jenkins commits and pushes, Argo CD deploys. The cluster only ever changes through Git. |
+| GitHub fine-grained token, this repository only, `Contents: read and write` | Stored in Jenkins credentials (`github-token`), used through `withCredentials` in a single-quoted `sh`, so the shell reads it and Jenkins masks it in the logs. |
+| `[skip ci]` in the deploy commit, checked in `Prepare` | Once polling is on, Jenkins' own commit would trigger a new build, then a new commit, forever. A `[skip ci]` commit marks the build `NOT_BUILT` and skips every stage. |
+| `git checkout -B <branch> origin/<branch>`, `git diff --quiet`, `git pull --rebase` | Jenkins checks out a detached commit; nothing is committed when the tag is already in Git; a commit pushed meanwhile does not make the push fail. |
+| `post { always { ... } }` cleanup | Removes the local image and the registry login after every build, so the bastion disk does not fill up. |
+| `docker build` rather than `docker buildx build` | Same BuildKit engine: with `docker-buildx-plugin` installed, `docker build` is an alias. `buildx` features (multi-arch, registry cache) are not needed for one x86 image. |
 
 ## Prerequisites
 
@@ -324,7 +353,32 @@ ssh -i ~/.ssh/<key> -L 8081:localhost:8081 prod@<bastion_public_ip>
 
 GitOps checks performed: changing `replicas` in Git adds a pod; `kubectl scale --replicas=5` is reverted to 2 by `selfHeal`; a ConfigMap removed from Git disappears from the cluster with `prune`.
 
-### 8. Destroy
+### 8. Run the CI pipeline
+
+One-time setup per bastion (Jenkins is re-created with it, until JCasC):
+
+1. Open Jenkins through the tunnel, unlock it with the password printed by Ansible, install the suggested plugins, create the admin user.
+2. **Manage Jenkins → Credentials**: add a *Username with password* credential with ID `github-token` (GitHub user + fine-grained token).
+3. **New Item → Pipeline**, "Pipeline script from SCM": Git, repository URL, branch `*/main`, script path `Jenkinsfile`.
+
+Then:
+
+```bash
+# workstation: change something in app/, commit, push; then "Build Now" in Jenkins
+
+# bastion: follow the deployment
+kubectl -n argocd annotate application demo argocd.argoproj.io/refresh=normal --overwrite
+kubectl get pods -n demo -w
+kubectl get deploy nginx -n demo -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+
+# view the page: port-forward on the bastion, tunnel from the workstation
+kubectl port-forward svc/nginx -n demo 8088:80
+ssh -i ~/.ssh/<key> -L 8088:localhost:8088 prod@<bastion_public_ip>    # then http://localhost:8088
+```
+
+After a `destroy`, ECR is empty but Git still points to the last tag: run the pipeline before (or right after) applying the Argo CD Application, otherwise the pods stay in `ImagePullBackOff` until the first build. Jenkins pushes to the branch: `git pull` before your next commit.
+
+### 9. Destroy
 
 ```bash
 terraform destroy
@@ -333,6 +387,20 @@ rm -f tfplan
 ```
 
 Never run `destroy` in `backend_s3`: the bucket holds the state of every environment. It is protected by `prevent_destroy`, so Terraform refuses and nothing is deleted.
+
+Never force-stop an `apply` or a `destroy` (a second `Ctrl+C`, or closing the terminal): resources being created exist in AWS but never reach the state. One `Ctrl+C` stops cleanly and records what was created.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `EntityAlreadyExists` / `RepositoryAlreadyExistsException` on `apply` | A forced stop of a previous `apply` left orphaned resources outside the state | Check for duplicates (`aws ec2 describe-vpcs`, NAT gateways, EKS clusters), delete empty orphans, then `terraform import <address> <id>` for the rest and re-run `plan` |
+| `no space left on device` during the Trivy scan | 8 GB root volume | `root_block_device` with 30 GB gp3 |
+| `Could not get lock /var/lib/dpkg/lock-frontend` on the first Ansible run | cloud-init / unattended-upgrades still use apt on a fresh bastion | `pre_tasks` waiting for `cloud-init status --wait`, `lock_timeout` on apt tasks |
+| Package versions ending in `26.04` on the bastion | Unpinned AMI filter picked a newer Ubuntu release | Pin the release in the `aws_ami` filter |
+| `NO_PUBKEY` on the Jenkins repository | Old signing key (2023, expired) still in `/etc/apt/keyrings/jenkins.asc` | Delete the key file and the `.sources` file, re-run `--tags jenkins` with `jenkins.io-2026.key` |
+| Pods in `ImagePullBackOff` after a re-creation | Git points to a tag that no longer exists in the emptied ECR repository | Run the pipeline |
+| Argo CD still on the previous commit | It polls Git about every 3 minutes | Annotate the Application with `argocd.argoproj.io/refresh=normal` |
 
 ## Costs
 
@@ -347,6 +415,7 @@ Nothing is free while the environment is running. Rough estimates, excluding tax
 | Public IPs | ≈ $0.005/h each |
 | RDS db.t4g.micro (single AZ) | ≈ $0.02/h |
 | ECR, Secrets Manager | a few cents per month |
+| Bastion root volume (30 GB gp3) | ≈ $0.004/h |
 
 About $0.36/h in total, so $2–3 per work session. The main risk is forgetting the `destroy`: an environment left running for a month costs over $200. An AWS Budgets alert sends an email when spending goes over the limit.
 
@@ -364,11 +433,15 @@ About $0.36/h in total, so $2–3 per work session. The main risk is forgetting 
 - Every downloaded binary (Helm, node_exporter) is checked against its published SHA256 checksum, and every apt repository is pinned to its signing key with `signed-by`.
 - The repository is public and read by Argo CD: it never contains secrets (`terraform.tfvars`, kubeconfigs and passwords are ignored by Git).
 - The Argo CD UI is not exposed: `ClusterIP` service, reached through `kubectl port-forward` and an SSH tunnel.
+- The GitHub token used by Jenkins is fine-grained (this repository only, contents read/write, short expiry), lives only in Jenkins credentials and is masked in the build logs.
+- Images are scanned twice (Trivy in the pipeline, ECR on push) and tags are immutable: a deployed tag always refers to the same image.
+- `.gitignore` covers `*.tfvars`, `tfplan`, `*.tfstate*` and `.terraform/`; `git ls-files | grep -E 'tfvars|tfplan|tfstate'` must stay empty.
 
 ## Roadmap
 
-- First Jenkins pipeline: build, Trivy scan, push to ECR with the commit hash as tag, update the tag in `gitops/`
 - Apply the Argo CD Application from the `argocd` role, then move to the app-of-apps pattern (one root Application for `gitops/apps/`)
+- Poll SCM on the Jenkins job (the `[skip ci]` guard is already in place)
+- Registry cache with `buildx` in a separate mutable ECR repository, so builds stay fast on a re-created bastion
 - Monitoring with Prometheus and Grafana in the cluster, scraping the bastion's node_exporter
 - Configure Jenkins as code (JCasC): plugins, admin user and jobs survive a re-created bastion
 - Sync the RDS secret into Kubernetes with External Secrets, then deploy an application that uses the database
